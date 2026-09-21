@@ -1,0 +1,20 @@
+# Data files (too large for git)
+data/*.csv
+data/*.json
+data/*.parquet
+*.csv.gz
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.egg-info/
+
+# Env
+.env
+.venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
