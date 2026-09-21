@@ -31,7 +31,7 @@ YEARS_BACK = 3
 
 
 def pull_311_data():
-    """Pull 311 data in paginated batches."""
+    """Pull 311 data in paginated batches with retry logic."""
     exclude_clause = " AND ".join(f"sr_type != '{t}'" for t in EXCLUDE_TYPES)
 
     where = (
@@ -51,7 +51,8 @@ def pull_311_data():
 
     all_rows = []
     offset = 0
-    batch_size = 50000
+    batch_size = 10000
+    max_retries = 3
 
     print(f"Pulling 311 data (completed requests, {YEARS_BACK}yr, with location)...")
     print(f"Endpoint: {ENDPOINT}")
@@ -67,19 +68,31 @@ def pull_311_data():
             "$offset": offset,
         }
 
-        resp = requests.get(ENDPOINT, params=params, timeout=120)
-        resp.raise_for_status()
-        batch = resp.json()
+        for attempt in range(1, max_retries + 1):
+            try:
+                resp = requests.get(ENDPOINT, params=params, timeout=60)
+                resp.raise_for_status()
+                batch = resp.json()
+                break
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                if attempt < max_retries:
+                    wait = attempt * 10
+                    print(f"  Timeout on batch at offset {offset}, retrying in {wait}s (attempt {attempt}/{max_retries})...")
+                    time.sleep(wait)
+                else:
+                    print(f"  Failed after {max_retries} attempts at offset {offset}. Saving what we have.")
+                    batch = []
+                    break
 
         if not batch:
             break
 
         all_rows.extend(batch)
         offset += batch_size
-        print(f"  Fetched {len(all_rows):,} rows (batch {offset // batch_size})...")
+        if (offset // batch_size) % 10 == 0:
+            print(f"  Fetched {len(all_rows):,} rows...")
 
-        # Rate limiting — be polite to the API
-        time.sleep(1)
+        time.sleep(0.5)
 
     print(f"\nTotal rows: {len(all_rows):,}")
 
