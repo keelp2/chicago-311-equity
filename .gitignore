@@ -1,8 +1,9 @@
 # Data files (too large for git)
 data/*.csv
-data/*.json
 data/*.parquet
 *.csv.gz
+# Keep the geojson (small, needed for notebook)
+!data/community_areas.geojson
 
 # Python
 __pycache__/
